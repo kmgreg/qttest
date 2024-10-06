@@ -1,0 +1,51 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          if [ "${platform}" == "ubuntu-latest" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq build-essential qt5-default
+          elif [ "${platform}" == "windows-latest" ]; then
+            choco install qt-creator
+          fi
+
+      - name: Build
+        run: |
+          if [ "${platform}" == "ubuntu-latest" ]; then
+            qmake -config release
+            make -j$(nproc)
+          elif [ "${platform}" == "windows-latest" ]; then
+            qmake -config release
+            nmake
+          fi
+
+      - name: Create release
+        uses: softprops/gotta-release@v2
+        with:
+          draft: true
+          prerelease: false
+          title: "Release ${GITHUB_REF##*/}"
+          body: "Automatically generated release notes."
+          artifact: "${GITHUB_WORKSPACE}/${GITHUB_REF##*/}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: "${GITHUB_REF##*/}.zip"
+          path: "${GITHUB_WORKSPACE}/${GITHUB_REF##*/}.zip"
