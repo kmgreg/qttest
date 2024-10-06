@@ -1,51 +1,52 @@
-name: Build and Release
+name: Build Qt Application
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
+        qt-version: [6.2.0] # Change to your desired Qt version
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install dependencies
+      - name: Install Qt
         run: |
-          if [ "${platform}" == "ubuntu-latest" ]; then
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             sudo apt-get update -qq
-            sudo apt-get install -y -qq build-essential qt5-default
-          elif [ "${platform}" == "windows-latest" ]; then
+            sudo apt-get install -y qt${{ matrix.qt-version }}-desktop-dev
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
             choco install qt-creator
+            choco install qt${{ matrix.qt-version }}-msvc2019
           fi
 
-      - name: Build
+      - name: Build Qt Application
         run: |
-          if [ "${platform}" == "ubuntu-latest" ]; then
-            qmake -config release
-            make -j$(nproc)
-          elif [ "${platform}" == "windows-latest" ]; then
-            qmake -config release
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            mkdir build
+            cd build
+            qmake ..
+            make
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+            mkdir build
+            cd build
+            qmake ..
             nmake
           fi
 
-      - name: Create release
+      - name: Create Release
         uses: softprops/gotta-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
           prerelease: false
-          title: "Release ${GITHUB_REF##*/}"
-          body: "Automatically generated release notes."
-          artifact: "${GITHUB_WORKSPACE}/${GITHUB_REF##*/}.zip"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: "${GITHUB_REF##*/}.zip"
-          path: "${GITHUB_WORKSPACE}/${GITHUB_REF##*/}.zip"
+          title: "Qt Application Build"
+          body: "Automated build of Qt application"
+          artifact: build
